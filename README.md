@@ -15,5 +15,5 @@ so that we don't rely on setting `winfix*` and so that we don't rely on
 
 # Credits
 
-- https://github.com/mattboehm/vim-accordion - I've been using this plugin for a long time now and it has been working fine for me with some small adaptations, but a recent interaction when opening a new telescope window made me want to create Sanfona, which is a modern version of this plugin written in lua.
-- https://github.com/basiliscos/lua-ordered-set - Copied and made some changes to better support storing an ordered set of focused window ids
+- [vim-accordion](https://github.com/mattboehm/vim-accordion) - I've been using this plugin for a long time now and it has been working fine for me with some small adaptations, but a recent interaction when opening a new telescope window made me want to create Sanfona, which is a modern version of this plugin written in lua.
+- [lua-ordered-set](https://github.com/basiliscos/lua-ordered-set) - Copied and made some changes to better support storing an ordered set of focused window ids
