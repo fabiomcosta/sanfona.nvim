@@ -2,16 +2,12 @@
 
 - [x] Buggy behavior when there is only one expanded window
 - [x] When opening nvim we should put the currently focused win on the right,
-and expand other wins that fit to the left (or maybe put it in the center)
+      and expand other wins that fit to the left (or maybe put it in the center)
 - [x] Make it behave nicely when opening new splits
 - [x] Make it behave nicely when closing splits
 - [x] Make it behave nicely with horizontal splits
 - [x] Ignore telescope buffers (note: checking for zindex should be enough)
 - [x] Ignore quickfix buffers
-- [ ] Because `wincmd =` is used, windows without `winfix*` are getting their
-size changed unexpectedly in some scenarios. Should we change our approach
-so that we don't rely on setting `winfix*` and so that we don't rely on
-`wincmd =`?
 
 # Credits
 
