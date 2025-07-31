@@ -1,3 +1,41 @@
+# sanfona.nvim
+
+TODO: logo
+TODO: a video is worth a thousand words
+
+Most languages and projects these days uses formating tools that will
+help force a maximum number of characters per line on our files.
+
+Sanfona (accordion in Portuguese) is a plugin that auto resizes your neovim
+windows so that they will have at least the min_width that is provided as
+configuration for the setup function.
+
+It accomplishes that by expanding the currently focused window, as well as the
+previously focused ones, while hidding other windows that can't fit in the
+current viewport considering the set min_width.
+
+I lied, the other windows are not actually hidden, they are just collapsed on
+the sides (and you can see them), and are set to have width 1.
+
+This way you can have as many windows open as your monitor can fit, while also
+being able to navigate to these collapsed windows if needed.
+
+# Install
+
+## lazy.nvim
+
+```lua
+return {
+  {
+    'fabiomcosta/sanfona.nvim',
+    opts = {
+        -- vim.o.colorcolumn is used as the default value
+        min_width = 80,
+    },
+  },
+}
+```
+
 # TODO
 
 - [x] Buggy behavior when there is only one expanded window
