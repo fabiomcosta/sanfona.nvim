@@ -42,7 +42,7 @@ end
 -- Setting winfixheight makes sure that when `wincmd =` runs the heights are
 -- preserved, which is generaly the deserved behavior.
 local win_preserve_height = function(win_id)
-  win_set_local_option(current_win_id, 'winfixheight', true)
+  win_set_local_option(win_id, 'winfixheight', true)
 end
 
 local win_list_valid_wins = function()
@@ -150,7 +150,7 @@ function M.setup(cfg)
       end)
       return
     end
-    if win_is_full_width(current_win_id) then
+    if win_is_float(current_win_id) or win_is_bottom_sheet(current_win_id) then
       return
     end
 
@@ -178,7 +178,7 @@ function M.setup(cfg)
 
     -- Ignore WinNew events for popups
     local current_win_id = vim.api.nvim_get_current_win()
-    if win_is_float(current_win_id) or win_is_full_width(current_win_id) then
+    if win_is_float(current_win_id) or win_is_bottom_sheet(current_win_id) then
       return
     end
 
@@ -192,7 +192,7 @@ function M.setup(cfg)
       return
     end
 
-    if win_is_float(closed_win_id) then
+    if win_is_float(closed_win_id) or win_is_bottom_sheet(closed_win_id) then
       return
     end
 
