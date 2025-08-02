@@ -124,7 +124,7 @@ end
 
 function M.setup(cfg)
   config = vim.tbl_deep_extend('force', {
-    min_width = vim.o.colorcolumn,
+    min_width = tonumber(vim.o.colorcolumn) or 80,
   }, cfg)
 
   local augroup = vim.api.nvim_create_augroup('Sanfona', { clear = true })
