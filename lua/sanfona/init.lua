@@ -4,7 +4,26 @@ local iter_around = require('sanfona.iter_around')
 local config
 local win_focus_history = OrderedSet.new()
 
+-- Each collapsed window uses 1 column of width for itself and 1 columns for
+-- its sibling side border.
+local COLLAPSED_WIN_WIDTH = 2
+
+-- The numbers column can vary in width, but most commonly it will be 3
+-- characters (up to 999) then there is an extra empty character and one more
+-- for windows's borders.
+local EXPANDED_WIN_EXTRA_WIDTH = 5
+
 local M = {}
+
+local indexof = function(tbl, predicate)
+  local index = vim.fn.indexof(tbl, predicate)
+  -- not found
+  if index == -1 then
+    return
+  end
+  -- All vim.fn.* functions are 0 indexed, lol
+  return index + 1
+end
 
 local win_is_float = function(win_id)
   local win_config = vim.api.nvim_win_get_config(win_id)
@@ -45,17 +64,16 @@ local win_preserve_height = function(win_id)
   win_set_local_option(win_id, 'winfixheight', true)
 end
 
-local win_list_valid_wins = function()
-  local windows = {}
-  -- TODO[nit]: use vim.fn.filter
-  for _, win_id in ipairs(vim.api.nvim_list_wins()) do
-    if vim.api.nvim_win_is_valid(win_id) then
-      if not win_is_float(win_id) and win_is_top_positioned(win_id) then
-        table.insert(windows, win_id)
-      end
+local win_list_sanfona_wins = function()
+  return vim.fn.filter(vim.api.nvim_list_wins(), function(_, win_id)
+    if not vim.api.nvim_win_is_valid(win_id) then
+      return false
     end
-  end
-  return windows
+    if win_is_float(win_id) then
+      return false
+    end
+    return win_is_top_positioned(win_id)
+  end)
 end
 
 local win_get_topmost_id = function()
@@ -77,8 +95,30 @@ local win_get_topmost_id = function()
     end
   end
 
+  vim.fn.win_getid()
+
   -- Should never happen, but seems like a fine default.
   return current_win_id
+end
+
+local get_max_visible_wins = function(wins)
+  local viewport_width = vim.o.columns
+  local max_visible_wins = math.floor(viewport_width / config.min_width)
+
+  for visible_wins = max_visible_wins, 1, -1 do
+    local collapsed_width = (#wins - visible_wins) * COLLAPSED_WIN_WIDTH
+    local expanded_extra_width = visible_wins * EXPANDED_WIN_EXTRA_WIDTH
+    local available_visible_width_per_win = (
+      viewport_width
+      - collapsed_width
+      - expanded_extra_width
+    ) / visible_wins
+    if available_visible_width_per_win >= config.min_width then
+      return visible_wins
+    end
+  end
+
+  return max_visible_wins
 end
 
 function M.resize()
@@ -86,37 +126,39 @@ function M.resize()
   vim.o.winwidth = 1
   vim.o.winminwidth = 1
 
-  local max_width = vim.o.columns
-  local max_visible_splits = math.floor(max_width / config.min_width)
+  local windows = win_list_sanfona_wins()
 
-  local windows = win_list_valid_wins()
+  if #windows < 2 then
+    return
+  end
 
-  if win_focus_history:len() >= max_visible_splits then
-    local focus_history = win_focus_history:slice(-max_visible_splits)
-    for _, win_id in pairs(windows) do
-      if vim.list_contains(focus_history, win_id) then
-        win_expand(win_id)
-      else
-        win_collapse(win_id)
-      end
-    end
-  elseif win_focus_history:len() == 1 then
+  local max_visible_splits = get_max_visible_wins(windows)
+
+  if win_focus_history:len() == 1 then
     local focused_win_id = win_focus_history:first()
-    local focused_win_index = vim.fn.indexof(windows, function(_, win_id)
+    local focused_win_index = indexof(windows, function(_, win_id)
       return win_id == focused_win_id
     end)
-    -- All vim.fn.* functions are 0 indexed, lol
-    focused_win_index = focused_win_index + 1
 
     for i, win_id in iter_around(windows, focused_win_index) do
       if i <= max_visible_splits then
         win_expand(win_id)
+        win_focus_history:append(win_id)
       else
         win_collapse(win_id)
       end
     end
-  else
-    assert(false, 'Unexpected error on sanfona.nvim, please report.')
+  elseif win_focus_history:len() >= max_visible_splits then
+    local focus_history = win_focus_history:slice(-max_visible_splits)
+    local expanded_count = 0
+    for _, win_id in pairs(windows) do
+      if vim.list_contains(focus_history, win_id) then
+        win_expand(win_id)
+        expanded_count = expanded_count + 1
+      else
+        win_collapse(win_id)
+      end
+    end
   end
 
   vim.api.nvim_exec2('wincmd =', { output = false })
