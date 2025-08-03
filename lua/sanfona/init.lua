@@ -107,10 +107,10 @@ local get_max_visible_wins = function(wins)
     local collapsed_width = (#wins - visible_wins) * COLLAPSED_WIN_WIDTH
     local expanded_extra_width = visible_wins * EXPANDED_WIN_EXTRA_WIDTH
     local available_width_for_text = viewport_width
-      - collapsed_width
-      - expanded_extra_width
+        - collapsed_width
+        - expanded_extra_width
     local available_visible_width_per_win = available_width_for_text
-      / visible_wins
+        / visible_wins
     if available_visible_width_per_win >= config.min_width then
       return visible_wins
     end
@@ -128,7 +128,16 @@ function M.resize(windows)
 
   local max_visible_splits = get_max_visible_wins(windows)
 
-  if win_focus_history:len() == 1 then
+  if win_focus_history:len() >= max_visible_splits then
+    local focus_history = win_focus_history:slice(-max_visible_splits)
+    for _, win_id in pairs(windows) do
+      if vim.list_contains(focus_history, win_id) then
+        win_expand(win_id)
+      else
+        win_collapse(win_id)
+      end
+    end
+  else
     local focused_win_id = win_focus_history:first()
     local focused_win_index = indexof(windows, function(_, win_id)
       return win_id == focused_win_id
@@ -138,15 +147,6 @@ function M.resize(windows)
       if i <= max_visible_splits then
         win_expand(win_id)
         win_focus_history:append(win_id)
-      else
-        win_collapse(win_id)
-      end
-    end
-  elseif win_focus_history:len() >= max_visible_splits then
-    local focus_history = win_focus_history:slice(-max_visible_splits)
-    for _, win_id in pairs(windows) do
-      if vim.list_contains(focus_history, win_id) then
-        win_expand(win_id)
       else
         win_collapse(win_id)
       end
@@ -254,7 +254,7 @@ function M.debug()
     windows = windows,
     config = config,
   }
-  vim.notify(vim.inspect(data))
+  print(vim.inspect(data))
   return data
 end
 
