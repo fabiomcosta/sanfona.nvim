@@ -107,16 +107,30 @@ local get_max_visible_wins = function(wins)
     local collapsed_width = (#wins - visible_wins) * COLLAPSED_WIN_WIDTH
     local expanded_extra_width = visible_wins * EXPANDED_WIN_EXTRA_WIDTH
     local available_width_for_text = viewport_width
-        - collapsed_width
-        - expanded_extra_width
+      - collapsed_width
+      - expanded_extra_width
     local available_visible_width_per_win = available_width_for_text
-        / visible_wins
+      / visible_wins
     if available_visible_width_per_win >= config.min_width then
       return visible_wins
     end
   end
 
   return max_visible_wins
+end
+
+-- Rebuilds the focus_history ordered set making sure to keep the existing
+-- order as well as removing any window that is not supposed to be controlled
+-- by sanfona (the ones returned by win_list_sanfona_wins()).
+local rebuild_focus_history = function()
+  local windows = win_list_sanfona_wins()
+  local win_history = OrderedSet.new()
+  for win_id in win_focus_history:items() do
+    if vim.list_contains(windows, win_id) then
+      win_history:append(win_id)
+    end
+  end
+  return win_history
 end
 
 function M.resize(windows)
@@ -178,6 +192,31 @@ function M.setup(cfg)
   -- events and only re-enable them after VimEnter.
   local ignore_mksession = true
 
+  --
+  local force_relayout = false
+
+  create_autocmd('WinNew', function()
+    if ignore_mksession then
+      return
+    end
+    -- TODO: Is there a way to get the if of the newly created window?
+    -- nvim_get_current_win returns the id of the currently focuesd window
+    -- not from the new one.
+    force_relayout = true
+  end)
+  create_autocmd('WinClosed', function(event)
+    local closed_win_id = tonumber(event.match)
+    if closed_win_id == nil or not vim.api.nvim_win_is_valid(closed_win_id) then
+      return
+    end
+    if win_is_float(closed_win_id) then
+      return
+    end
+    if not win_is_top_positioned(closed_win_id) then
+      return
+    end
+    force_relayout = true
+  end)
   create_autocmd('WinEnter', function()
     local current_win_id = vim.api.nvim_get_current_win()
     if ignore_mksession then
@@ -192,14 +231,22 @@ function M.setup(cfg)
       return
     end
 
+    if force_relayout then
+      win_focus_history = rebuild_focus_history()
+    end
+
     local win_topmost_id = win_get_topmost_id()
     win_focus_history:append(win_topmost_id)
 
-    -- When moving to an already expanded window, there is no need to
-    -- relayout.
-    local width = vim.api.nvim_win_get_width(win_topmost_id)
-    if width > 1 then
-      return
+    if not force_relayout then
+      -- When moving to an already expanded window, there is no need to
+      -- relayout.
+      local width = vim.api.nvim_win_get_width(win_topmost_id)
+      if width > 1 then
+        return
+      end
+    else
+      force_relayout = false
     end
 
     M.resize()
@@ -209,46 +256,16 @@ function M.setup(cfg)
     win_focus_history:append(win_get_topmost_id())
     M.resize()
   end)
-  create_autocmd('WinNew', function()
-    if ignore_mksession then
-      return
-    end
-
-    -- Ignore WinNew events for popups and bottom_sheets
-    local current_win_id = vim.api.nvim_get_current_win()
-    if win_is_float(current_win_id) or win_is_bottom_sheet(current_win_id) then
-      return
-    end
-
-    win_preserve_height(current_win_id)
-    win_focus_history:append(win_get_topmost_id())
+  create_autocmd('VimResized', function()
     M.resize()
   end)
-  create_autocmd('WinClosed', function(event)
-    local closed_win_id = tonumber(event.match)
-    if closed_win_id == nil or not vim.api.nvim_win_is_valid(closed_win_id) then
-      return
-    end
-
-    if win_is_float(closed_win_id) or win_is_bottom_sheet(closed_win_id) then
-      return
-    end
-
-    win_focus_history:remove(closed_win_id)
-    -- win_list_sanfona_wins still returns the closed window, let's remove it
-    local windows = win_list_sanfona_wins()
-    windows = vim.fn.filter(windows, function(_, win_id)
-      return win_id ~= closed_win_id
-    end)
-    M.resize(windows)
-  end)
-  create_autocmd('VimResized', M.resize)
 end
 
 function M.debug()
   local windows = win_list_sanfona_wins()
   local max_visible_wins = get_max_visible_wins(windows)
   local data = {
+    current_win_id = vim.api.nvim_get_current_win(),
     max_visible_wins = max_visible_wins,
     focus_history = win_focus_history:slice(-100),
     windows = windows,
