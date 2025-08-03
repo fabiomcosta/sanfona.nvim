@@ -4,8 +4,8 @@ local iter_around = require('sanfona.iter_around')
 local config
 local win_focus_history = OrderedSet.new()
 
--- Each collapsed window uses 1 column of width for itself and 1 columns for
--- its sibling side border.
+-- Each collapsed window uses 1 column of width for itself and 1 column for
+-- its border.
 local COLLAPSED_WIN_WIDTH = 2
 
 -- The numbers column can vary in width, but most commonly it will be 3
@@ -95,8 +95,6 @@ local win_get_topmost_id = function()
     end
   end
 
-  vim.fn.win_getid()
-
   -- Should never happen, but seems like a fine default.
   return current_win_id
 end
@@ -108,11 +106,11 @@ local get_max_visible_wins = function(wins)
   for visible_wins = max_visible_wins, 1, -1 do
     local collapsed_width = (#wins - visible_wins) * COLLAPSED_WIN_WIDTH
     local expanded_extra_width = visible_wins * EXPANDED_WIN_EXTRA_WIDTH
-    local available_visible_width_per_win = (
-      viewport_width
+    local available_width_for_text = viewport_width
       - collapsed_width
       - expanded_extra_width
-    ) / visible_wins
+    local available_visible_width_per_win = available_width_for_text
+      / visible_wins
     if available_visible_width_per_win >= config.min_width then
       return visible_wins
     end
@@ -121,12 +119,8 @@ local get_max_visible_wins = function(wins)
   return max_visible_wins
 end
 
-function M.resize()
-  -- Needed so that we can collapse windows down to 1 column.
-  vim.o.winwidth = 1
-  vim.o.winminwidth = 1
-
-  local windows = win_list_sanfona_wins()
+function M.resize(windows)
+  windows = windows or win_list_sanfona_wins()
 
   if #windows < 2 then
     return
@@ -150,11 +144,9 @@ function M.resize()
     end
   elseif win_focus_history:len() >= max_visible_splits then
     local focus_history = win_focus_history:slice(-max_visible_splits)
-    local expanded_count = 0
     for _, win_id in pairs(windows) do
       if vim.list_contains(focus_history, win_id) then
         win_expand(win_id)
-        expanded_count = expanded_count + 1
       else
         win_collapse(win_id)
       end
@@ -165,6 +157,10 @@ function M.resize()
 end
 
 function M.setup(cfg)
+  -- Needed so that we can collapse windows down to 1 column.
+  vim.o.winwidth = 1
+  vim.o.winminwidth = 1
+
   config = vim.tbl_deep_extend('force', {
     min_width = tonumber(vim.o.colorcolumn) or 80,
   }, cfg)
@@ -218,7 +214,7 @@ function M.setup(cfg)
       return
     end
 
-    -- Ignore WinNew events for popups
+    -- Ignore WinNew events for popups and bottom_sheets
     local current_win_id = vim.api.nvim_get_current_win()
     if win_is_float(current_win_id) or win_is_bottom_sheet(current_win_id) then
       return
@@ -239,9 +235,27 @@ function M.setup(cfg)
     end
 
     win_focus_history:remove(closed_win_id)
-    M.resize()
+    -- win_list_sanfona_wins still returns the closed window, let's remove it
+    local windows = win_list_sanfona_wins()
+    windows = vim.fn.filter(windows, function(_, win_id)
+      return win_id ~= closed_win_id
+    end)
+    M.resize(windows)
   end)
   create_autocmd('VimResized', M.resize)
+end
+
+function M.debug()
+  local windows = win_list_sanfona_wins()
+  local max_visible_wins = get_max_visible_wins(windows)
+  local data = {
+    max_visible_wins = max_visible_wins,
+    focus_history = win_focus_history:slice(-100),
+    windows = windows,
+    config = config,
+  }
+  vim.notify(vim.inspect(data))
+  return data
 end
 
 return M
