@@ -17,9 +17,9 @@ local function indexof(tbl, predicate)
   return index + 1
 end
 
--- Rebuilds the focus_history ordered set making sure to keep the existing
+-- Rebuilds the focus_history OrderedSet making sure to keep the existing
 -- order as well as removing any window that is not supposed to be controlled
--- by sanfona (the ones returned by win_list_sanfona_wins()).
+-- by sanfona (the ones returned by win.list_sanfona_wins()).
 local rebuild_focus_history = function()
   local windows = win.list_sanfona_wins()
   local win_history = OrderedSet.new()
