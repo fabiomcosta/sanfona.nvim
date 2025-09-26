@@ -7,7 +7,8 @@ local function vim_cmd_exists(cmd_name)
 end
 
 function M.win_focus_up()
-  if win.is_bottom_sheet() then
+  local current_win_id = vim.api.nvim_get_current_win()
+  if win.is_bottom_sheet(current_win_id) then
     for _, win_id in ipairs(win.list_sanfona_wins()) do
       if not win.is_collapsed(win_id) then
         return vim.api.nvim_set_current_win(win_id)
