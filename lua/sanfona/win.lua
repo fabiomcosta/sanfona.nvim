@@ -44,6 +44,15 @@ function M.expand(win_id)
   vim.api.nvim_win_set_width(win_id, vim.o.columns)
 end
 
+function M.is_collapsed(win_id)
+  local is_collpapsed_width = vim.api.nvim_win_get_width(win_id) == 1
+  local is_fixed_width = vim.api.nvim_get_option_value(
+    'winfixwidth',
+    { scope = 'local', win = win_id }
+  )
+  return is_collpapsed_width and is_fixed_width
+end
+
 -- Setting winfixheight makes sure that when `wincmd =` runs the heights are
 -- preserved, which is generaly the deserved behavior.
 function M.preserve_height(win_id)
@@ -94,10 +103,10 @@ function M.get_expanded_win_count(wins)
     local collapsed_width = (#wins - visible_wins) * COLLAPSED_WIN_WIDTH
     local expanded_extra_width = visible_wins * EXPANDED_WIN_EXTRA_WIDTH
     local available_width_for_text = viewport_width
-        - collapsed_width
-        - expanded_extra_width
+      - collapsed_width
+      - expanded_extra_width
     local available_visible_width_per_win = available_width_for_text
-        / visible_wins
+      / visible_wins
     if available_visible_width_per_win >= config.min_width then
       return visible_wins
     end

@@ -2,10 +2,11 @@ local OrderedSet = require('sanfona.ordered_set')
 local iter_around = require('sanfona.iter_around')
 local win = require('sanfona.win')
 local config = require('sanfona.config')
+local extras = require('sanfona.extras')
 
 local win_focus_history = OrderedSet.new()
 
-local M = {}
+local M = extras
 
 local function indexof(tbl, predicate)
   local index = vim.fn.indexof(tbl, predicate)
