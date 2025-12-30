@@ -1,8 +1,8 @@
 local OrderedSet = require('sanfona.ordered_set')
-local iter_around = require('sanfona.iter_around')
-local win = require('sanfona.win')
 local config = require('sanfona.config')
 local extras = require('sanfona.extras')
+local iter_around = require('sanfona.iter_around')
+local win = require('sanfona.win')
 
 local win_focus_history = OrderedSet.new()
 
@@ -20,7 +20,7 @@ end
 
 -- Rebuilds the focus_history OrderedSet making sure to keep the existing
 -- order as well as removing any window that is not supposed to be controlled
--- by sanfona (the ones returned by win.list_sanfona_wins()).
+-- by sanfona (keeping only the ones from win.list_sanfona_wins()).
 local rebuild_focus_history = function()
   local windows = win.list_sanfona_wins()
   local win_history = OrderedSet.new()
@@ -59,10 +59,10 @@ function M.resize()
     for i, win_id in iter_around(windows, focused_win_index) do
       if i <= expanded_win_count then
         win.expand(win_id)
-        win_focus_history:append(win_id)
       else
         win.collapse(win_id)
       end
+      win_focus_history:prepend(win_id)
     end
   end
 
@@ -70,10 +70,6 @@ function M.resize()
 end
 
 function M.setup(cfg)
-  -- Needed so that we can collapse windows down to 1 column.
-  vim.o.winwidth = 1
-  vim.o.winminwidth = 1
-
   config(cfg)
 
   local augroup = vim.api.nvim_create_augroup('Sanfona', { clear = true })
@@ -85,8 +81,8 @@ function M.setup(cfg)
   end
 
   -- WinEnter and WinNew are silently called for each open window before
-  -- VimEnter, which is unexpected and very confusing, so we ignore those
-  -- events and only re-enable them after VimEnter.
+  -- VimEnter, which can be confusing, so we ignore those events and only
+  -- re-enable them after VimEnter.
   local ignore_mksession = true
 
   --
@@ -96,26 +92,15 @@ function M.setup(cfg)
     if ignore_mksession then
       return
     end
-    -- TODO: Is there a way to get the if of the newly created window?
-    -- nvim_get_current_win returns the id of the currently focuesd window
+    -- TODO: Is there a way to get the id of the newly created window?
+    -- nvim_get_current_win returns the id of the currently focused window
     -- not from the new one.
     force_relayout = true
   end)
-  create_autocmd('WinClosed', function(event)
-    local closed_win_id = tonumber(event.match)
-    if closed_win_id == nil or not vim.api.nvim_win_is_valid(closed_win_id) then
-      return
-    end
-    if win.is_float(closed_win_id) then
-      return
-    end
-    if not win.is_top_positioned(closed_win_id) then
-      return
-    end
-    force_relayout = true
-  end)
+
   create_autocmd('WinEnter', function()
     local current_win_id = vim.api.nvim_get_current_win()
+
     if ignore_mksession then
       -- Setting winfixheight without vim.schedule will end up making it so
       -- on load all the windows become flat with height 1
@@ -124,7 +109,11 @@ function M.setup(cfg)
       end)
       return
     end
-    if win.is_float(current_win_id) or win.is_bottom_sheet(current_win_id) then
+
+    if win.is_float(current_win_id) then
+      return
+    end
+    if win.is_bottom_sheet(current_win_id) then
       return
     end
 
@@ -148,11 +137,30 @@ function M.setup(cfg)
 
     M.resize()
   end)
+
+  create_autocmd('WinClosed', function(event)
+    local closed_win_id = tonumber(event.match)
+    if closed_win_id == nil then
+      return
+    end
+    if not vim.api.nvim_win_is_valid(closed_win_id) then
+      return
+    end
+    if win.is_float(closed_win_id) then
+      return
+    end
+    if not win.is_top_positioned(closed_win_id) then
+      return
+    end
+    force_relayout = true
+  end)
+
   create_autocmd('VimEnter', function()
     ignore_mksession = false
     win_focus_history:append(win.get_topmost_id())
     M.resize()
   end)
+
   create_autocmd('VimResized', function()
     M.resize()
   end)
@@ -160,16 +168,25 @@ end
 
 function M.debug()
   local windows = win.list_sanfona_wins()
-  local expanded_win_count = win.get_expanded_win_count(windows)
-  local data = {
+  local win_info = vim.tbl_map(function(win_id)
+    local buf_id = vim.api.nvim_win_get_buf(win_id)
+    local buf_name = vim.api.nvim_buf_get_name(buf_id)
+    return {
+      id = win_id,
+      buf = {
+        id = buf_id,
+        name = buf_name,
+      },
+    }
+  end, windows)
+  return {
     current_win_id = vim.api.nvim_get_current_win(),
-    expanded_win_count = expanded_win_count,
+    expanded_win_count = win.get_expanded_win_count(windows),
     focus_history = win_focus_history:slice(-100),
-    windows = windows,
-    config = config,
+    windows = win_info,
+    -- TODO: not useful ATM, make it useful.
+    -- config = config,
   }
-  print(vim.inspect(data))
-  return data
 end
 
 return M

@@ -5,8 +5,8 @@ local config = require('sanfona.config')
 local COLLAPSED_WIN_WIDTH = 2
 
 -- The numbers column can vary in width, but most commonly it will be 3
--- characters (up to 999) then there is an extra empty character and one more
--- for windows's borders.
+-- characters (up to 999) then there is 1 extra empty character and 1 more
+-- for the windows's borders.
 local EXPANDED_WIN_EXTRA_WIDTH = 5
 
 local M = {}
