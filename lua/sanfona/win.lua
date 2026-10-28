@@ -97,7 +97,10 @@ end
 -- Returns how many windows we are supposed to keep visible (expanded).
 function M.get_expanded_win_count(wins)
   local viewport_width = vim.o.columns
-  local max_visible_wins = math.floor(viewport_width / config.min_width)
+  local max_visible_wins = math.max(
+    1,
+    math.floor(viewport_width / config.min_width)
+  )
 
   for visible_wins = max_visible_wins, 1, -1 do
     local collapsed_width = (#wins - visible_wins) * COLLAPSED_WIN_WIDTH
